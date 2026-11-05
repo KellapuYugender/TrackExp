@@ -9,6 +9,8 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
 
+def default_invitation_expiry():
+    return timezone.now() + timedelta(days=7)
 
 class Trip(models.Model):
     class Status(models.TextChoices):
@@ -96,7 +98,7 @@ class Trip(models.Model):
     def __str__(self):
         return self.name
 
-
+# TripMember Model
 class TripMember(models.Model):
     class Role(models.TextChoices):
         ADMIN = "ADMIN", "Admin"
@@ -293,9 +295,7 @@ class TripInvitation(models.Model):
         default=token_urlsafe,
         editable=False,
     )
-    expires_at = models.DateTimeField(
-        default=lambda: timezone.now() + timedelta(days=7)
-    )
+    expires_at = models.DateTimeField(default=default_invitation_expiry)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
