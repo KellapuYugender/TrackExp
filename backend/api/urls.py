@@ -1,7 +1,8 @@
 
 from django.urls import path
 from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
-from .views import RegisterView, MeView,TripListCreateView,TripDetailView
+from .views import RegisterView, MeView,TripListCreateView,TripDetailView,ContributionListCreateView
+
 
 
 urlpatterns = [
@@ -13,4 +14,6 @@ urlpatterns = [
     path("auth/me/", MeView.as_view(), name="me"),
     path("trips/", TripListCreateView.as_view(), name="trip-list-create"),
     path("trips/<int:pk>/", TripDetailView.as_view(), name="trip-detail"),
+    path("trips/<int:trip_id>/contributions/",ContributionListCreateView.as_view(),
+    name="trip-contributions"),
 ]

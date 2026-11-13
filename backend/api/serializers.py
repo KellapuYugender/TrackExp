@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trip, TripMember
+from .models import Trip,TripMember,Contribution
 
 User = get_user_model()
 
@@ -108,3 +108,63 @@ class TripSerializer(serializers.ModelSerializer):
         )
 
         return trip
+
+
+class ContributionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contribution
+        fields = [
+            "id",
+            "trip",
+            "member",
+            "recorded_by",
+            "amount",
+            "note",
+            "contributed_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "trip",
+            "recorded_by",
+            "created_at",
+        ]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Contribution amount must be greater than zero."
+            )
+        return value
+
+    def validate(self, data):
+        trip = self.context["trip"]
+        member = data["member"]
+        user = self.context["request"].user
+
+        if trip.status != Trip.Status.ACTIVE:
+            raise serializers.ValidationError(
+                "Cannot contribute to a closed trip."
+            )
+
+        if member.trip_id != trip.id:
+            raise serializers.ValidationError({
+                "member": "This member does not belong to the trip."
+            })
+
+        if not TripMember.objects.filter(
+            trip=trip,
+            user=user,
+        ).exists():
+            raise serializers.ValidationError(
+                "You must belong to this trip to record contributions."
+            )
+
+        return data
+
+    def create(self, validated_data):
+        return Contribution.objects.create(
+            trip=self.context["trip"],
+            recorded_by=self.context["request"].user,
+            **validated_data,
+        )
