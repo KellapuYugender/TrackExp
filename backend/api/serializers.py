@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trip,TripMember,Contribution
+from .models import Trip,TripMember,Contribution,Expense
 
 User = get_user_model()
 
@@ -167,4 +167,78 @@ class ContributionSerializer(serializers.ModelSerializer):
             trip=self.context["trip"],
             recorded_by=self.context["request"].user,
             **validated_data,
+        )
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Expense
+        fields = [
+            "id",
+            "trip",
+            "paid_by",
+            "recorded_by",
+            "amount",
+            "merchant",
+            "location",
+            "description",
+            "category",
+            "spent_at",
+            "created_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "trip",
+            "recorded_by",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Expense amount must be greater than zero."
+            )
+        return value
+
+    def validate(self, data):
+        trip = self.context["trip"]
+        user = self.context["request"].user
+        paid_by = data["paid_by"]
+
+        if trip.status != Trip.Status.ACTIVE:
+            raise serializers.ValidationError(
+                "Cannot add expenses to a closed trip."
+            )
+
+        if not TripMember.objects.filter(
+            trip=trip,
+            user=user
+        ).exists():
+            raise serializers.ValidationError(
+                "You must be a trip member to record expenses."
+            )
+
+        if not TripMember.objects.filter(
+            trip=trip,
+            user=paid_by
+        ).exists():
+            raise serializers.ValidationError({
+                "paid_by": "The payer must belong to this trip."
+            })
+
+        if data["amount"] > trip.remaining_balance:
+            raise serializers.ValidationError({
+                "amount": "Insufficient shared fund balance."
+            })
+
+        return data
+
+    def create(self, validated_data):
+        return Expense.objects.create(
+            trip=self.context["trip"],
+            recorded_by=self.context["request"].user,
+            **validated_data
         )
