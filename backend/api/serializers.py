@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trip,TripMember,Contribution,Expense
+from .models import Trip,TripMember,Contribution,Expense,TripInvitation
 
 User = get_user_model()
 
@@ -242,3 +242,58 @@ class ExpenseSerializer(serializers.ModelSerializer):
             recorded_by=self.context["request"].user,
             **validated_data
         )
+
+
+class TripInvitationSerializer(serializers.ModelSerializer):
+    is_valid = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = TripInvitation
+
+        fields = [
+            "id",
+            "trip",
+            "created_by",
+            "token",
+            "expires_at",
+            "is_active",
+            "is_valid",
+            "created_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "trip",
+            "created_by",
+            "token",
+            "expires_at",
+            "is_active",
+            "is_valid",
+            "created_at",
+        ]
+
+class TripMemberSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        source="user.username",
+        read_only=True
+    )
+
+    email = serializers.EmailField(
+        source="user.email",
+        read_only=True
+    )
+
+    class Meta:
+        model = TripMember
+
+        fields = [
+            "id",
+            "trip",
+            "user",
+            "username",
+            "email",
+            "role",
+            "joined_at",
+        ]
+
+        read_only_fields = fields

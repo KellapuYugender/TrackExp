@@ -1,7 +1,7 @@
 
 from django.urls import path
 from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
-from .views import RegisterView, MeView,TripListCreateView,TripDetailView,ContributionListCreateView,ExpenseListCreateView
+from .views import RegisterView, MeView,TripListCreateView,TripDetailView,ContributionListCreateView,ExpenseListCreateView,TripInvitationListCreateView,JoinTripView,TripMemberListView
 
 
 
@@ -16,9 +16,8 @@ urlpatterns = [
     path("trips/<int:pk>/", TripDetailView.as_view(), name="trip-detail"),
     path("trips/<int:trip_id>/contributions/",ContributionListCreateView.as_view(),
     name="trip-contributions"),
-    path(
-    "trips/<int:trip_id>/expenses/",
-    ExpenseListCreateView.as_view(),
-    name="trip-expenses"
-    ),
+    path("trips/<int:trip_id>/expenses/",ExpenseListCreateView.as_view(),name="trip-expenses"),
+    path("trips/<int:trip_id>/invitations/",TripInvitationListCreateView.as_view(),name="trip-invitations"),
+    path("trips/join/",JoinTripView.as_view(),name="join-trip"),
+    path("trips/<int:trip_id>/members/",TripMemberListView.as_view(),name="trip-members"),
 ]
