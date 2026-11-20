@@ -162,6 +162,14 @@ class Contribution(models.Model):
         related_name="recorded_contributions",
     )
 
+    topup_share = models.ForeignKey(
+    "TripTopUpShare",
+    on_delete=models.PROTECT,
+    related_name="contributions",
+    null=True,
+    blank=True
+    )
+
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     note = models.CharField(max_length=255, blank=True)
     contributed_at = models.DateTimeField(default=timezone.now)
@@ -334,3 +342,166 @@ class TripInvitation(models.Model):
 
     def __str__(self):
         return f"Invitation for {self.trip}"
+
+
+class TripSettlement(models.Model):
+    trip = models.ForeignKey(
+        Trip,
+        on_delete=models.CASCADE,
+        related_name="settlements"
+    )
+
+    member = models.ForeignKey(
+        TripMember,
+        on_delete=models.PROTECT,
+        related_name="settlements"
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["trip", "member"],
+                name="unique_trip_member_settlement"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=0),
+                name="settlement_amount_nonnegative"
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.member_id and self.trip_id:
+            if self.member.trip_id != self.trip_id:
+                raise ValidationError(
+                    "Settlement member must belong to the trip."
+                )
+
+    def __str__(self):
+        return (
+            f"{self.trip.name} - "
+            f"{self.member.user.username}: "
+            f"{self.amount}"
+        )
+
+
+class TripTopUpRequest(models.Model):
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        COMPLETED = "COMPLETED", "Completed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    trip = models.ForeignKey(
+        Trip,
+        on_delete=models.CASCADE,
+        related_name="topup_requests"
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_topup_requests"
+    )
+
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
+    reason = models.TextField(blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(total_amount__gt=0),
+                name="topup_total_positive"
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.trip.name} - "
+            f"{self.total_amount} ({self.status})"
+        )
+
+
+class TripTopUpShare(models.Model):
+
+    topup_request = models.ForeignKey(
+        TripTopUpRequest,
+        on_delete=models.CASCADE,
+        related_name="shares"
+    )
+
+    member = models.ForeignKey(
+        TripMember,
+        on_delete=models.PROTECT,
+        related_name="topup_shares"
+    )
+
+    target_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["topup_request", "member"],
+                name="unique_topup_member"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(target_amount__gte=0),
+                name="topup_target_nonnegative"
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.topup_request_id and self.member_id:
+            if (
+                self.member.trip_id
+                != self.topup_request.trip_id
+            ):
+                raise ValidationError(
+                    "Top-up member must belong to the trip."
+                )
+
+    def __str__(self):
+        return (
+            f"{self.member.user.username}: "
+            f"{self.target_amount}"
+        )
+    @property
+    def paid_amount(self):
+        total = self.contributions.aggregate(
+            total=models.Sum("amount")
+        )["total"]
+        return total or Decimal("0.00")
+
+
+    @property
+    def remaining_amount(self):
+        return self.target_amount - self.paid_amount 

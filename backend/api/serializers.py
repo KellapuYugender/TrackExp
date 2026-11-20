@@ -3,7 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trip,TripMember,Contribution,Expense,TripInvitation
+from .models import Trip,TripMember,Contribution,Expense,TripInvitation,TripSettlement,TripTopUpRequest,TripTopUpShare
+from decimal import Decimal
 
 User = get_user_model()
 
@@ -297,3 +298,96 @@ class TripMemberSerializer(serializers.ModelSerializer):
         ]
 
         read_only_fields = fields
+
+
+class TripSettlementSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(
+        source="member.user_id",
+        read_only=True
+    )
+
+    username = serializers.CharField(
+        source="member.user.username",
+        read_only=True
+    )
+
+    class Meta:
+        model = TripSettlement
+        fields = [
+            "id",
+            "user_id",
+            "username",
+            "amount",
+            "created_at"
+        ]
+        read_only_fields = fields
+
+
+class TripTopUpShareSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(
+        source="member.user_id",
+        read_only=True
+    )
+    username = serializers.CharField(
+        source="member.user.username",
+        read_only=True
+    )
+
+    class Meta:
+        model = TripTopUpShare
+        fields = [
+            "id",
+            "user_id",
+            "username",
+            "target_amount"
+        ]
+        read_only_fields = fields
+
+
+class TripTopUpRequestSerializer(serializers.ModelSerializer):
+    shares = TripTopUpShareSerializer(
+        many=True,
+        read_only=True
+    )
+
+    class Meta:
+        model = TripTopUpRequest
+        fields = [
+            "id",
+            "trip",
+            "created_by",
+            "total_amount",
+            "reason",
+            "status",
+            "created_at",
+            "shares"
+        ]
+
+        read_only_fields = [
+            "id",
+            "trip",
+            "created_by",
+            "status",
+            "created_at",
+            "shares"
+        ]
+
+    def validate_total_amount(self, value):
+        if value <= Decimal("0.00"):
+            raise serializers.ValidationError(
+                "Top-up amount must be greater than zero."
+            )
+        return value
+
+class TopUpContributionSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01")
+    )
+
+    note = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default=""
+    )

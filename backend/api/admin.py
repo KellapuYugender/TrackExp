@@ -1,7 +1,7 @@
 
 from django.contrib import admin
 
-from .models import Trip, TripMember, Contribution, Expense, TripInvitation
+from .models import Trip, TripMember, Contribution, Expense, TripInvitation,TripSettlement,TripTopUpRequest, TripTopUpShare
 
 
 @admin.register(Trip)
@@ -47,3 +47,53 @@ class TripInvitationAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("trip__name", "created_by__username")
     readonly_fields = ("token", "created_at")
+
+
+@admin.register(TripSettlement)
+class TripSettlementAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "trip",
+        "member",
+        "amount",
+        "created_at",
+    )
+
+    list_filter = ("trip", "created_at")
+
+    search_fields = (
+        "trip__name",
+        "member__user__username",
+    )
+
+    readonly_fields = ("created_at",)
+
+
+@admin.register(TripTopUpRequest)
+class TripTopUpRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "trip",
+        "total_amount",
+        "status",
+        "created_by",
+        "created_at"
+    )
+
+    list_filter = ("status", "created_at")
+    search_fields = ("trip__name",)
+
+
+@admin.register(TripTopUpShare)
+class TripTopUpShareAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "topup_request",
+        "member",
+        "target_amount"
+    )
+
+    search_fields = (
+        "topup_request__trip__name",
+        "member__user__username"
+    )
